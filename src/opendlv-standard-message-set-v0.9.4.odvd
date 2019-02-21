@@ -359,10 +359,3 @@ message opendlv.logic.cognition.GroundSteeringLimit [id = 1191] {
 message opendlv.logic.cognition.GroundSpeedLimit [id = 1192] {
   float speedLimit [id = 1];
 }
-
-// This message should not be used... Not part of SMS
-message opendlv.proxy.ActuationRequest [id = 160] {
-    float acceleration [id = 1];
-    float steering [id = 2];
-    bool isValid [id = 3];
-}

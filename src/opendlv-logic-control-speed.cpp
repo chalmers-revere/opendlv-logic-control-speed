@@ -35,6 +35,7 @@ int32_t main(int32_t argc, char **argv) {
       << "[--p=<P value>] "
       << "[--d=<D value>] "
       << "[--i=<I value>] "
+      << "[--e=<E value, equilibrium point scaling of control value>] "
       << "[--i-limit=<I component limit>] "
       << "[--output-limit-min=<Minimum output value>] "
       << "[--output-limit-max=<Maximum output value>] "
@@ -69,6 +70,7 @@ int32_t main(int32_t argc, char **argv) {
     bool hasP = commandlineArguments.count("p") != 0;
     bool hasD = commandlineArguments.count("d") != 0;
     bool hasI = commandlineArguments.count("i") != 0;
+    bool hasE = commandlineArguments.count("e") != 0;
     bool hasILimit = commandlineArguments.count("i-limit") != 0;
     bool hasOutputLimitMin = 
       commandlineArguments.count("output-limit-min") != 0;
@@ -78,7 +80,9 @@ int32_t main(int32_t argc, char **argv) {
     double p = hasP ? std::stod(commandlineArguments["p"]) : 0.0f;
     double d = hasD ? std::stod(commandlineArguments["d"]) : 0.0f;
     double i = hasI ? std::stod(commandlineArguments["i"]) : 0.0f;
-    double iLimit = hasILimit ? std::stod(commandlineArguments["i-limit"]) : 0.0f;
+    double e = hasE ? std::stod(commandlineArguments["e"]) : 0.0f;
+    double iLimit = hasILimit ? std::stod(
+        commandlineArguments["i-limit"]) : 0.0f;
     double outputLimitMin = hasOutputLimitMin ? 
       std::stod(commandlineArguments["output-limit-min"]) : 0.0f;
     double outputLimitMax = hasOutputLimitMax ? 
@@ -136,8 +140,8 @@ int32_t main(int32_t argc, char **argv) {
         }
       }};
 
-    auto atFrequency{[&outputSenderId, &hasP, &hasD, &hasI, &hasILimit,
-        &hasOutputLimitMin, &hasOutputLimitMax, &p, &d, &i, &iLimit, 
+    auto atFrequency{[&outputSenderId, &hasP, &hasD, &hasI, &hasILimit, &hasE,
+        &hasOutputLimitMin, &hasOutputLimitMax, &p, &d, &i, &e, &iLimit, 
         &outputLimitMin, &outputLimitMax, &integral, &prevError, &reading, 
         &readingMutex, &hasReading, &target, &targetMutex, &hasTarget,
         &dt, &od4, &verbose]() -> bool
@@ -146,14 +150,18 @@ int32_t main(int32_t argc, char **argv) {
           return true;
         }
 
+        double control = 0.0;
+
         double error;
         {
           std::lock_guard<std::mutex> lockTarget(targetMutex);
           std::lock_guard<std::mutex> lockReading(readingMutex);
           error = target - reading;
+          if (hasE) {
+            control += e * target;
+          }
         }
 
-        double control = 0.0;
         if (hasP) {
           control += p * error;
         }
@@ -182,12 +190,10 @@ int32_t main(int32_t argc, char **argv) {
           control = outputLimitMax;
         }
 
-        opendlv::proxy::ActuationRequest ar;
-        ar.acceleration(static_cast<float>(control));
-        ar.steering(0.0f);
-        ar.isValid(true);
+        opendlv::proxy::PedalPositionRequest ppr;
+        ppr.position(static_cast<float>(control));
 
-        od4.send(ar, cluon::time::now(), outputSenderId);
+        od4.send(ppr, cluon::time::now(), outputSenderId);
 
         return true;
       }};
