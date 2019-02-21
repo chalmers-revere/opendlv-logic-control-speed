@@ -41,8 +41,10 @@ int32_t main(int32_t argc, char **argv) {
       << "[--output-limit-max=<Maximum output value>] "
       << "[--input-sender-id=<Sender ID of input message>] "
       << "[--control-sender-id=<Sender ID of control message>] "
-      << "[--output-sender-id=<Sender ID of output message>] [--verbose]" 
-      << std::endl;
+      << "[--output-sender-id=<Sender ID of output message>] " 
+      << "[--deceleration-error-threshold=<Error threshold before braking "
+      << "(sign is omitted)>] [--deceleration-p=<P value for deceleration>] "
+      << " [--verbose]" << std::endl;
     std::cerr << "Example: " << argv[0] 
       << " --p=1.0 --d=2.0 --cid=111 --freq=50" << std::endl;
     retCode = 1;
@@ -76,6 +78,10 @@ int32_t main(int32_t argc, char **argv) {
       commandlineArguments.count("output-limit-min") != 0;
     bool hasOutputLimitMax = 
       commandlineArguments.count("output-limit-max") != 0;
+    bool hasDecelerationStrategy = 
+      commandlineArguments.count("deceleration-error-threshold") != 0;
+    bool hasDecelerationP = 
+      commandlineArguments.count("deceleration-p") != 0;
 
     double p = hasP ? std::stod(commandlineArguments["p"]) : 0.0f;
     double d = hasD ? std::stod(commandlineArguments["d"]) : 0.0f;
@@ -87,6 +93,10 @@ int32_t main(int32_t argc, char **argv) {
       std::stod(commandlineArguments["output-limit-min"]) : 0.0f;
     double outputLimitMax = hasOutputLimitMax ? 
       std::stod(commandlineArguments["output-limit-max"]) : 0.0f;
+    double decelerationErrorThreshold = hasDecelerationStrategy ? 
+      std::stod(commandlineArguments["deceleration-error-threshold"]) : 0.0f;
+    double decelerationP = hasDecelerationP ? 
+      std::stod(commandlineArguments["deceleration-p"]) : 1.0f;
     
     double const dt = 1.0 / freq;
 
@@ -142,8 +152,9 @@ int32_t main(int32_t argc, char **argv) {
 
     auto atFrequency{[&outputSenderId, &hasP, &hasD, &hasI, &hasILimit, &hasE,
         &hasOutputLimitMin, &hasOutputLimitMax, &p, &d, &i, &e, &iLimit, 
-        &outputLimitMin, &outputLimitMax, &integral, &prevError, &reading, 
-        &readingMutex, &hasReading, &target, &targetMutex, &hasTarget,
+        &outputLimitMin, &outputLimitMax, &hasDecelerationStrategy,
+        &decelerationErrorThreshold, &decelerationP, &integral, &prevError,
+        &reading, &readingMutex, &hasReading, &target, &targetMutex, &hasTarget,
         &dt, &od4, &verbose]() -> bool
       {
         if (!hasReading || !hasTarget) {
@@ -160,6 +171,22 @@ int32_t main(int32_t argc, char **argv) {
           if (hasE) {
             control += e * target;
           }
+        }
+
+        if (hasDecelerationStrategy 
+            && -error > std::abs(decelerationErrorThreshold) ) {
+          double deceleration = decelerationP * -error;
+
+          if (verbose) {
+            std::cout << "Sending deceleration request: " << deceleration 
+              << std::endl;
+          }
+        
+          opendlv::proxy::GroundDecelerationRequest gdr;
+          gdr.groundDeceleration(static_cast<float>(deceleration));
+          od4.send(gdr, cluon::time::now(), outputSenderId);
+
+          return true;
         }
 
         if (hasP) {
@@ -189,10 +216,14 @@ int32_t main(int32_t argc, char **argv) {
         if (hasOutputLimitMax && control < outputLimitMax) {
           control = outputLimitMax;
         }
+          
+        if (verbose) {
+          std::cout << "Sending acceleration position request: " 
+            << control << std::endl;
+        }
 
         opendlv::proxy::PedalPositionRequest ppr;
         ppr.position(static_cast<float>(control));
-
         od4.send(ppr, cluon::time::now(), outputSenderId);
 
         return true;
