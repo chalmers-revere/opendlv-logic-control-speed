@@ -1,3 +1,4 @@
+# Copyright (C) 2021 Björnborg Nguyen
 # Copyright (C) 2019 Ola Benderius
 #
 # This program is free software: you can redistribute it and/or modify
@@ -13,32 +14,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-FROM pipill/armhf-alpine:edge as builder
-
-RUN [ "cross-build-start" ]
-
-RUN cat /etc/apk/repositories && \
-    echo http://dl-4.alpinelinux.org/alpine/v3.7/main > /etc/apk/repositories && \
-    echo http://dl-4.alpinelinux.org/alpine/v3.7/community >> /etc/apk/repositories
-
+FROM alpine:3.7 as builder
 RUN apk update && \
   apk --no-cache add \
-    cmake \
-    g++ \
-    make \
-    linux-headers
+  cmake \
+  g++ \
+  make \
+  upx \
+  linux-headers
 
 ADD . /opt/sources
 WORKDIR /opt/sources
 RUN mkdir build && \
-    cd build && \
-    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp/build-dest .. && \
-    make && make test && make install
-
-RUN [ "cross-build-end" ]
+  cd build && \
+  cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp/build-dest .. && \
+  make && make install && upx -9 /tmp/build-dest/bin/opendlv-logic-control-speed
 
 
-FROM pipill/armhf-alpine:edge
+FROM alpine:3.7
 
 WORKDIR /usr/bin
 COPY --from=builder /tmp/build-dest/ /usr/

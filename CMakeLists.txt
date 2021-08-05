@@ -1,3 +1,4 @@
+# Copyright (C) 2021 Björnborg Nguyen
 # Copyright (C) 2019 Ola Benderius
 #
 # This program is free software: you can redistribute it and/or modify
@@ -20,7 +21,7 @@ project(opendlv-logic-control-speed)
 ################################################################################
 # Defining the relevant versions of OpenDLV Standard Message Set and libcluon.
 set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.4.odvd)
-set(CLUON_COMPLETE cluon-complete-v0.0.120.hpp)
+set(CLUON_COMPLETE cluon-complete-v0.0.140.hpp)
 
 ################################################################################
 # This project requires C++14 or newer.

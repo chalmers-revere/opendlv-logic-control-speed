@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2021 Björnborg Nguyen
  * Copyright (C) 2019 Ola Benderius
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,80 +25,85 @@
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
 
-int32_t main(int32_t argc, char **argv) {
+int32_t main(int32_t argc, char **argv)
+{
   int32_t retCode{0};
   auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
-  if (0 == commandlineArguments.count("cid") 
-      || 0 == commandlineArguments.count("freq")) {
+  if (0 == commandlineArguments.count("cid") || 0 == commandlineArguments.count("freq"))
+  {
 
-    std::cerr << argv[0] << " a PID speed controller." << std::endl;
+    std::cerr << argv[0] << " a PID speed controller for snowfox." << std::endl;
     std::cerr << "Usage:   " << argv[0] << " --cid=<OpenDLV session ID> "
-      << "[--p=<P value>] "
-      << "[--d=<D value>] "
-      << "[--i=<I value>] "
-      << "[--e=<E value, equilibrium point scaling of control value>] "
-      << "[--i-limit=<I component limit>] "
-      << "[--output-limit-min=<Minimum output value>] "
-      << "[--output-limit-max=<Maximum output value>] "
-      << "[--input-sender-id=<Sender ID of input message>] "
-      << "[--control-sender-id=<Sender ID of control message>] "
-      << "[--output-sender-id=<Sender ID of output message>] " 
-      << "[--deceleration-error-threshold=<Error threshold before braking "
-      << "(sign is omitted)>] [--deceleration-p=<P value for deceleration>] "
-      << " [--verbose]" << std::endl;
-    std::cerr << "Example: " << argv[0] 
-      << " --p=1.0 --d=2.0 --cid=111 --freq=50" << std::endl;
+              << "[--p=<P value>] "
+              << "[--d=<D value>] "
+              << "[--i=<I value>] "
+              << "[--e=<E value, equilibrium point scaling of control value>] "
+              << "[--i-limit=<I component limit>] "
+              << "[--output-limit-min=<Minimum output value>] "
+              << "[--output-limit-max=<Maximum output value>] "
+              << "[--input-sender-id=<Sender ID of input message>] "
+              << "[--control-sender-id=<Sender ID of control message>] "
+              << "[--output-sender-id=<Sender ID of output message>] "
+              << "[--deceleration-error-threshold=<Error threshold before braking "
+              << "(sign is omitted)>] [--deceleration-p=<P value for deceleration>] "
+              << " [--verbose]" << std::endl;
+    std::cerr << "Example: " << argv[0]
+              << " --p=0.15 --i=0.08 --output-limit-min=-1.5 --output-limit-max=1.5 --i-limit=1.0 --cid=111 --freq=100" << std::endl;
     retCode = 1;
-  } else {
+  }
+  else
+  {
+    // Umea params
+    // logic-legacy-simpledriver.speed_control_k = 0.15
+    // logic-legacy-simpledriver.speed_control_i = 0.08
+    // logic-legacy-simpledriver.speed_control_global_limit = 1.5
+    // logic-legacy-simpledriver.speed_control_error_sum_limit = 1.0
+
     uint16_t const cid{static_cast<uint16_t>(
         std::stoi(commandlineArguments["cid"]))};
     uint32_t const freq{static_cast<uint32_t>(
         std::stoi(commandlineArguments["freq"]))};
- 
+
     uint32_t const inputSenderId{
-        commandlineArguments.count("input-sender-id") != 0 ?
-        static_cast<uint32_t>(
-            std::stoi(commandlineArguments["input-sender-id"])) : 0};
+        commandlineArguments.count("input-sender-id") != 0 ? static_cast<uint32_t>(
+                                                                 std::stoi(commandlineArguments["input-sender-id"]))
+                                                           : 0};
     uint32_t const controlSenderId{
-        commandlineArguments.count("control-sender-id") != 0 ?
-        static_cast<uint32_t>(
-            std::stoi(commandlineArguments["control-sender-id"])) : 0};
+        commandlineArguments.count("control-sender-id") != 0 ? static_cast<uint32_t>(
+                                                                   std::stoi(commandlineArguments["control-sender-id"]))
+                                                             : 0};
     uint32_t const outputSenderId{
-        commandlineArguments.count("output-sender-id") != 0 ?
-        static_cast<uint32_t>(
-            std::stoi(commandlineArguments["output-sender-id"])) : 0};
+        commandlineArguments.count("output-sender-id") != 0 ? static_cast<uint32_t>(
+                                                                  std::stoi(commandlineArguments["output-sender-id"]))
+                                                            : 0};
     bool const verbose{commandlineArguments.count("verbose") != 0};
-    
 
     bool hasP = commandlineArguments.count("p") != 0;
     bool hasD = commandlineArguments.count("d") != 0;
     bool hasI = commandlineArguments.count("i") != 0;
     bool hasE = commandlineArguments.count("e") != 0;
     bool hasILimit = commandlineArguments.count("i-limit") != 0;
-    bool hasOutputLimitMin = 
-      commandlineArguments.count("output-limit-min") != 0;
-    bool hasOutputLimitMax = 
-      commandlineArguments.count("output-limit-max") != 0;
-    bool hasDecelerationStrategy = 
-      commandlineArguments.count("deceleration-error-threshold") != 0;
-    bool hasDecelerationP = 
-      commandlineArguments.count("deceleration-p") != 0;
+    bool hasOutputLimitMin =
+        commandlineArguments.count("output-limit-min") != 0;
+    bool hasOutputLimitMax =
+        commandlineArguments.count("output-limit-max") != 0;
+    bool hasDecelerationStrategy =
+        commandlineArguments.count("deceleration-error-threshold") != 0;
+    bool hasDecelerationP =
+        commandlineArguments.count("deceleration-p") != 0;
 
     double p = hasP ? std::stod(commandlineArguments["p"]) : 0.0f;
     double d = hasD ? std::stod(commandlineArguments["d"]) : 0.0f;
     double i = hasI ? std::stod(commandlineArguments["i"]) : 0.0f;
     double e = hasE ? std::stod(commandlineArguments["e"]) : 0.0f;
     double iLimit = hasILimit ? std::stod(
-        commandlineArguments["i-limit"]) : 0.0f;
-    double outputLimitMin = hasOutputLimitMin ? 
-      std::stod(commandlineArguments["output-limit-min"]) : 0.0f;
-    double outputLimitMax = hasOutputLimitMax ? 
-      std::stod(commandlineArguments["output-limit-max"]) : 0.0f;
-    double decelerationErrorThreshold = hasDecelerationStrategy ? 
-      std::stod(commandlineArguments["deceleration-error-threshold"]) : 0.0f;
-    double decelerationP = hasDecelerationP ? 
-      std::stod(commandlineArguments["deceleration-p"]) : 1.0f;
-    
+                                    commandlineArguments["i-limit"])
+                              : 0.0f;
+    double outputLimitMin = hasOutputLimitMin ? std::stod(commandlineArguments["output-limit-min"]) : 0.0f;
+    double outputLimitMax = hasOutputLimitMax ? std::stod(commandlineArguments["output-limit-max"]) : 0.0f;
+    double decelerationErrorThreshold = hasDecelerationStrategy ? std::stod(commandlineArguments["deceleration-error-threshold"]) : 0.0f;
+    double decelerationP = hasDecelerationP ? std::stod(commandlineArguments["deceleration-p"]) : 1.0f;
+
     double const dt = 1.0 / freq;
 
     double integral = 0.0;
@@ -116,123 +122,144 @@ int32_t main(int32_t argc, char **argv) {
 
     auto onGroundSpeedReading{
         [&inputSenderId, &reading, &readingMutex, &hasReading, &verbose](
-        cluon::data::Envelope &&envelope)
-      {
-        if (envelope.senderStamp() != inputSenderId) {
-          return;
-        }
-        std::lock_guard<std::mutex> lock(readingMutex);
-        auto groundSpeedReading 
-          = cluon::extractMessage<opendlv::proxy::GroundSpeedReading>(
+            cluon::data::Envelope &&envelope)
+        {
+          if (envelope.senderStamp() != inputSenderId)
+          {
+            return;
+          }
+          std::lock_guard<std::mutex> lock(readingMutex);
+          auto groundSpeedReading = cluon::extractMessage<opendlv::proxy::GroundSpeedReading>(
               std::move(envelope));
-        reading = groundSpeedReading.groundSpeed();
-        hasReading = true;
-        if (verbose) {
-          std::cout << "New reading: " << reading << std::endl;
-        }
-      }};
+          reading = groundSpeedReading.groundSpeed();
+          hasReading = true;
+          if (verbose)
+          {
+            std::cout << "New reading: " << reading << std::endl;
+          }
+        }};
 
     auto onGroundSpeedRequest{
         [&controlSenderId, &target, &targetMutex, &hasTarget, &verbose](
-        cluon::data::Envelope &&envelope)
-      {
-        if (envelope.senderStamp() != controlSenderId) {
-          return;
-        }
-        std::lock_guard<std::mutex> lock(targetMutex);
-        auto groundSpeedRequest 
-          = cluon::extractMessage<opendlv::proxy::GroundSpeedRequest>(
-              std::move(envelope));
-        target = groundSpeedRequest.groundSpeed();
-        hasTarget = true;
-        if (verbose) {
-          std::cout << "New target set: " << target << std::endl;
-        }
-      }};
-
-    auto atFrequency{[&outputSenderId, &hasP, &hasD, &hasI, &hasILimit, &hasE,
-        &hasOutputLimitMin, &hasOutputLimitMax, &p, &d, &i, &e, &iLimit, 
-        &outputLimitMin, &outputLimitMax, &hasDecelerationStrategy,
-        &decelerationErrorThreshold, &decelerationP, &integral, &prevError,
-        &reading, &readingMutex, &hasReading, &target, &targetMutex, &hasTarget,
-        &dt, &od4, &verbose]() -> bool
-      {
-        if (!hasReading || !hasTarget) {
-          return true;
-        }
-
-        double control = 0.0;
-
-        double error;
+            cluon::data::Envelope &&envelope)
         {
-          std::lock_guard<std::mutex> lockTarget(targetMutex);
-          std::lock_guard<std::mutex> lockReading(readingMutex);
-          error = target - reading;
-          if (hasE) {
-            control += e * target;
+          if (envelope.senderStamp() != controlSenderId)
+          {
+            return;
           }
-        }
-
-        if (hasDecelerationStrategy 
-            && -error > std::abs(decelerationErrorThreshold) ) {
-          double deceleration = decelerationP * -error;
-
-          if (verbose) {
-            std::cout << "Sending deceleration request: " << deceleration 
-              << std::endl;
+          std::lock_guard<std::mutex> lock(targetMutex);
+          auto groundSpeedRequest = cluon::extractMessage<opendlv::proxy::GroundSpeedRequest>(
+              std::move(envelope));
+          target = groundSpeedRequest.groundSpeed();
+          hasTarget = true;
+          if (verbose)
+          {
+            std::cout << "New target set: " << target << std::endl;
           }
-        
-          opendlv::proxy::GroundDecelerationRequest gdr;
-          gdr.groundDeceleration(static_cast<float>(deceleration));
-          od4.send(gdr, cluon::time::now(), outputSenderId);
+        }};
 
-          return true;
-        }
+    auto atFrequency{
+        [&outputSenderId, &hasP, &hasD, &hasI, &hasILimit, &hasE,
+         &hasOutputLimitMin, &hasOutputLimitMax, &p, &d, &i, &e, &iLimit,
+         &outputLimitMin, &outputLimitMax, &hasDecelerationStrategy,
+         &decelerationErrorThreshold, &decelerationP, &integral, &prevError,
+         &reading, &readingMutex, &hasReading, &target, &targetMutex, &hasTarget,
+         &dt, &od4, &verbose]() -> bool
+        {
+          if (!hasReading || !hasTarget)
+          {
+            return true;
+          }
 
-        if (hasP) {
-          control += p * error;
-        }
+          double control = 0.0;
 
-        if (hasD) {
-          control += d * (error - prevError) / dt;
-        }
-
-        if (hasI) {
-          integral += error * dt;
-          if (hasILimit && std::abs(integral) > iLimit) {
-            if (integral > 0.0) {
-              integral = iLimit;
-            } else {
-              integral = -iLimit;
+          double error;
+          {
+            std::lock_guard<std::mutex> lockTarget(targetMutex);
+            std::lock_guard<std::mutex> lockReading(readingMutex);
+            error = target - reading;
+            if (hasE)
+            {
+              control += e * target;
             }
           }
-          control += i * integral;
-        }
 
-        if (hasOutputLimitMin && control < outputLimitMin) {
-          control = outputLimitMin;
-        }
-        
-        if (hasOutputLimitMax && control < outputLimitMax) {
-          control = outputLimitMax;
-        }
-          
-        if (verbose) {
-          std::cout << "Sending acceleration position request: " 
-            << control << std::endl;
-        }
+          if (hasDecelerationStrategy && -error > std::abs(decelerationErrorThreshold))
+          {
+            double deceleration = decelerationP * -error;
 
-        opendlv::proxy::PedalPositionRequest ppr;
-        ppr.position(static_cast<float>(control));
-        od4.send(ppr, cluon::time::now(), outputSenderId);
+            if (verbose)
+            {
+              std::cout << "Sending deceleration request: " << deceleration
+                        << std::endl;
+            }
 
-        return true;
-      }};
+            opendlv::proxy::GroundDecelerationRequest gdr;
+            gdr.groundDeceleration(static_cast<float>(deceleration));
+            od4.send(gdr, cluon::time::now(), outputSenderId);
+
+            return true;
+          }
+
+          if (hasP)
+          {
+            control += p * error;
+          }
+
+          if (hasD)
+          {
+            control += d * (error - prevError) / dt;
+          }
+
+          if (hasI)
+          {
+            integral += error * dt;
+            if (hasILimit && std::abs(integral) > iLimit)
+            {
+              if (integral > 0.0)
+              {
+                integral = iLimit;
+              }
+              else
+              {
+                integral = -iLimit;
+              }
+            }
+            control += i * integral;
+          }
+
+          if (hasOutputLimitMin && control < outputLimitMin)
+          {
+            control = outputLimitMin;
+          }
+
+          if (hasOutputLimitMax && control < outputLimitMax)
+          {
+            control = outputLimitMax;
+          }
+
+          if (verbose)
+          {
+            // std::cout << "Sending acceleration position request: "
+            //           << control << std::endl;
+            std::cout << "Sending acceleration request: "
+                      << control << std::endl;
+          }
+
+          // opendlv::proxy::PedalPositionRequest ppr;
+          // ppr.position(static_cast<float>(control));
+          // od4.send(ppr, cluon::time::now(), outputSenderId);
+          opendlv::proxy::GroundAccelerationRequest gar;
+          gar.groundAcceleration(static_cast<float>(control));
+          od4.send(gar, cluon::time::now(), outputSenderId);
+
+          return true;
+        }};
 
     od4.dataTrigger(opendlv::proxy::GroundSpeedReading::ID(),
-        onGroundSpeedReading);
+                    onGroundSpeedReading);
     od4.dataTrigger(opendlv::proxy::GroundSpeedRequest::ID(),
-        onGroundSpeedRequest);
+                    onGroundSpeedRequest);
     od4.timeTrigger(freq, atFrequency);
   }
   return retCode;
