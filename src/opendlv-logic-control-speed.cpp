@@ -115,7 +115,7 @@ int32_t main(int32_t argc, char **argv)
     std::mutex readingMutex;
 
     bool hasTarget{false};
-    double target;
+    double target{0.0 / 3.6};
     std::mutex targetMutex;
 
     cluon::OD4Session od4{cid};
@@ -227,14 +227,22 @@ int32_t main(int32_t argc, char **argv)
             }
             control += i * integral;
           }
+          // std::cout << "Has min: "
+          //           << hasOutputLimitMin << std::endl;
 
           if (hasOutputLimitMin && control < outputLimitMin)
           {
+            // std::cout << "Hitting floor control signal: "
+            //           << outputLimitMin << std::endl;
             control = outputLimitMin;
           }
+          // std::cout << "Has max: "
+          //           << hasOutputLimitMax << std::endl;
 
-          if (hasOutputLimitMax && control < outputLimitMax)
+          if (hasOutputLimitMax && control > outputLimitMax)
           {
+            // std::cout << "Hitting roof control signal: "
+            //           << outputLimitMax << std::endl;
             control = outputLimitMax;
           }
 
